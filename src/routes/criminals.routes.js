@@ -2,6 +2,7 @@ import express from "express";
 import mongoose from "mongoose";
 import requireAuth from "../middleware/requireAuth.js";
 import Criminal from "../models/Criminal.js";
+import {listCriminalsQuerySchema} from "../schemas/criminals.schema.js";
 
 const router = express.Router();
 
@@ -9,39 +10,28 @@ const badRequest = (msg) => Object.assign(new Error(msg), { status: 400 });
 const isValidId = (id) => mongoose.isValidObjectId(id);
 
 // POST /api/criminals  (create)
-router.post("/", requireAuth, async (req, res, next) => {
+router.post("/", requireAuth, validate(createCriminalSchema, "body"), async (req, res, next) => {
   try {
-    const { name, aliases = [], crimes = [], status = "unknown", threatLevel = 3, lastSeen, notes } = req.body || {};
-    if (!name) throw badRequest("name is required");
-
+    const { name, aliases, crimes, status, threatLevel, lastSeen, notes } = req.body;
     const clean = {
       owner: req.user._id,
-      name: name.trim(),
-      aliases: aliases.map((a) => String(a).trim()).filter(Boolean),
-      crimes: crimes.map((c) => String(c).trim()).filter(Boolean),
+      name,
+      aliases,
+      crimes,
       status,
-      threatLevel: Number(threatLevel),
-      notes: notes?.trim(),
+      threatLevel,
+      notes,
+      ...(lastSeen ? { lastSeen } : {}),
     };
-    if (lastSeen) clean.lastSeen = new Date(lastSeen);
-
     const doc = await Criminal.create(clean);
     res.status(201).json(doc);
   } catch (err) { next(err); }
 });
 
 // GET /api/criminals  (list + filters + pagination + sorting)
-router.get("/", requireAuth, async (req, res, next) => {
+router.get("/", requireAuth, validate(listCriminalsQuerySchema, "query"), async (req, res, next) => {
   try {
-    const {
-      page = 1,
-      limit = 10,
-      q = "",              // free-text search across name/aliases/crimes
-      status,              // filter by status
-      minThreat,           // filter by threatLevel >=
-      maxThreat,           // filter by threatLevel <=
-      sort = "-createdAt", // e.g. "-threatLevel", "name", "-updatedAt"
-    } = req.query;
+    const { page, limit, q, status, minThreat, maxThreat, sort } = req.query;
 
     const filter = { owner: req.user._id };
 

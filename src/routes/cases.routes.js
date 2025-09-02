@@ -5,12 +5,13 @@ import Case from "../models/Case.js";
 import Criminal from "../models/Criminal.js";
 import Evidence from "../models/Evidence.js";
 import { isValidId, ensureOwnsAll } from "../utils/ownership.js";
+import { createCaseSchema } from "../schemas/cases.schema.js";
 
 const router = express.Router();
 const badRequest = (m) => Object.assign(new Error(m), { status: 400 });
 
 // CREATE  POST /api/cases
-router.post("/", requireAuth, async (req, res, next) => {
+router.post("/", requireAuth, validate(createCaseSchema, "body"), async (req, res, next) => {
   try {
     const { title, summary, status = "open", priority = 3, suspects = [], evidence = [] } = req.body || {};
     if (!title) throw badRequest("title is required");
